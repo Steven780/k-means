@@ -1,0 +1,611 @@
+/*
+I wrote a K-means Clustering algorithm in C++ and in Octave and used these programs to investigate how effective the K-means clustering algorithm is at grouping data in 2-dimensional data-sets.
+
+Results of K-means clustering on a number of data sets
+
+I tested the K-means clustering algorithm on 5 different data sets. One of these data sets contains real data (Figure 1: Fisher's Iris data) and the other four contain synthetic data. The synthetic data sets R15, D31, Aggregation and Flame (as well as others) can be found at http://cs.joensuu.fi/sipu/datasets/. 
+
+While k-means performed well on the Fisher's Iris data it performed poorly on data sets where there were a large number of clusters (i.e. R15 and D31 data sets) or when clusters are non-globular (i.e.Aggregation and flame data sets). These can be viewed below.
+
+The C++ program asks the user for a valid file name and the number of clusters to group the data-set into. The data is inputted into memory and K-means clustering is performed. The program saves cluster mean locations and group id values into a text file when centroids no longer update their positions.
+
+
+
+
+Name: K-means clustering on 2D datasets
+Copyright:
+
+  Author: Steven R. Kinghorn
+
+  Date: 14/07/12 07:51
+
+  Description: 
+
+*/
+
+#include <cstdlib>
+
+#include <iostream>
+
+#include <fstream>
+
+#include <string>
+
+#include <math.h>
+
+
+//----------------GLOBAL VARIABLES----------------------------------------------
+
+char FileName[256];
+
+int elements;      //Number of data items within txt file
+
+int DataPoints;    //Number of data points within dataset
+
+float i;
+
+ 
+
+const int MaxNoOfDataPoints=10000;  //Maximum No. of data points allowed
+
+    float Xcoord[MaxNoOfDataPoints];  //X&Y positions of the data points.
+
+    float Ycoord[MaxNoOfDataPoints];
+
+    float Class[MaxNoOfDataPoints]; //The class the data point belongs to.
+
+ 
+
+const int K=101;  //The maximum number of clusters allowed for the dataset.
+
+int clustersNum=K;     //The number of clusters chosen by the user.
+
+float ClusterXLoc[K];  //X & Y Locations of the Cluster means.
+
+float ClusterYLoc[K];
+
+ 
+
+//Previous Cluster mean locations
+
+float prevClusterXLoc[K];
+
+float prevClusterYLoc[K];
+
+float largestX;
+
+float largestY;
+
+float SmallestX;
+
+float SmallestY;
+
+//------------------------------------------------------------------------------
+
+ 
+
+//--------------------FUNCTION DECLARATIONS-------------------------------------
+
+int NoOfElements();
+
+void inputData(int);
+
+void InitClusterLoc();    
+
+void FindMinMaxXY();
+
+int GroupPoints(int);
+
+void SaveClusterMeans();
+
+void SaveClassVals(int PointClass[]);
+
+//------------------------------------------------------------------------------
+ 
+
+using namespace std;
+
+int main(int argc, char *argv[])
+
+{
+    srand(time(0));
+
+    NoOfElements();     //Counting the number of pieces of data in txt file
+
+    DataPoints=(elements/3);
+
+
+    if(DataPoints<=MaxNoOfDataPoints)
+
+    {
+
+        cout<< "No. of data points in file: "<<DataPoints<<endl;
+
+        //system("pause");
+
+        inputData(DataPoints); //Extract data x,y coordinates and class values
+
+                               //from the txt file and store them in memory.
+    }
+
+    else {cout<<"The data file has more than 10000 data points"<<endl;
+
+         cout<<"please reduce the number of data points to <=10000"<<endl;
+
+         cout<<"and re-run the program."<<endl;}
+
+      
+
+      while(clustersNum>100 || clustersNum<1)
+
+        {  
+
+            cout<<"Please enter the number of K clusters desired (between 1-100): ";
+
+            cin>>clustersNum;
+
+            if(clustersNum>100)
+
+            {cout<<"Need a number LESS or EQUAL to 100"<<endl;}
+
+            if(clustersNum<1)
+
+            {cout<<"Need a number higher than zero"<<endl;}
+
+        }
+
+      
+
+      //Determine the largest X and Y coordinate.
+
+      //These values will be used as a guide for the placement of the initial
+
+      //cluster means.
+
+      FindMinMaxXY();
+
+      InitClusterLoc();   //Generating pseudo-random locations for cluster means
+
+      
+
+      int PointClass[DataPoints]; //Stores the Cluster the datapoint belongs to.
+
+       float sumX;
+
+       float sumY;
+
+       int iterations;   
+
+       float sum=1.0;   
+
+clock_t startTime = clock();
+
+ 
+
+while(sum!=0)
+
+{
+
+      //Assign data points to nearest cluster mean
+
+      for(int PlotPoint=0; PlotPoint<DataPoints; PlotPoint++)
+
+       {
+
+        PointClass[PlotPoint]=GroupPoints(PlotPoint);
+
+        //cout<<"This data point belongs to: "<<PointClass[PlotPoint]<<endl;
+
+       }
+
+       
+
+       sum=0.0;
+
+       //Calculate new cluster means
+
+        for(int num=0; num<clustersNum; num++)
+
+        {
+
+         sumX=0.0;
+
+         sumY=0.0;
+
+         iterations=0;
+
+           for(int point=0; point<DataPoints; point++)
+
+           {
+
+               if(PointClass[point]==num)
+
+               {
+
+                iterations++;
+
+                sumX=Xcoord[point]+sumX;
+
+                sumY=Ycoord[point]+sumY;
+
+               }
+
+           }
+
+             if(iterations==0)
+
+             {
+
+             //No data points belong to this cluster. Therefore, replace 
+
+             //this clusters pseudo-randomly back into the 2D data space.
+
+              float lowestX=SmallestX, lowestY=SmallestY, highestX=(largestX), highestY=(largestY); 
+
+              float rangeX=(highestX-lowestX), rangeY=(highestY-lowestY); 
+
+              
+
+              ClusterXLoc[num]=lowestX+float(rangeX*rand()/(RAND_MAX + 1.0));
+
+              ClusterYLoc[num]=lowestY+float(rangeY*rand()/(RAND_MAX + 1.0));        
+
+             }
+
+             if(iterations!=0)
+
+             {
+
+                ClusterXLoc[num]=(sumX/iterations);
+
+                ClusterYLoc[num]=(sumY/iterations);
+
+             }         
+
+                sum=sqrt((pow((ClusterXLoc[num]-prevClusterXLoc[num]),2)+
+
+                       pow((ClusterYLoc[num]-prevClusterYLoc[num]),2)))+sum;
+
+ 
+
+             prevClusterXLoc[num]=ClusterXLoc[num];
+
+             prevClusterYLoc[num]=ClusterYLoc[num];
+
+        }
+
+}
+
+ 
+
+cout << double( clock() - startTime ) / (double)CLOCKS_PER_SEC<< " seconds." << endl;
+
+ 
+
+//Save Cluster means
+
+SaveClusterMeans();
+
+SaveClassVals(PointClass); //Saving the data point locations and the class values they belong
+
+                 //to according to the K-means clustering algorithm.
+
+ 
+
+cout<<"Cluster centroids have been saved in ClusterMeans.txt"<<endl;
+
+cout<<"Data points and new clusters values are saved in SaveClassVals.txt"<<endl;
+
+cout<<"Press any key to exit"<<endl;
+
+ 
+
+    system("PAUSE");
+
+    return EXIT_SUCCESS;
+
+}
+
+//------------------------END OF MAIN-------------------------------------------
+
+ 
+
+//Ask user for file name (i.e. Data_set.txt) and count the number of elements in file
+
+int NoOfElements()
+
+{
+
+    cout<<"Please enter the name of the file to be tested: ";
+
+    cin.getline(FileName,256);
+
+    ifstream infile(FileName);
+
+    elements=0;
+
+    if (infile.is_open())
+
+    {
+
+     while(infile >> i)
+
+     {
+
+      elements++;
+
+     }
+
+    
+
+        infile.close();
+
+    }
+
+      else {
+
+               cout << "Unable to open file"<<endl;
+
+               cout << "Ensure that you spelled the filename correctly"<<endl;
+
+               cout << "and that the file is in the same folder as this"<<endl;
+
+               cout << "executable"<<endl;
+
+           }
+
+}
+ 
+
+void inputData(int DataPoints)
+
+{
+
+    ifstream infile(FileName);
+
+    
+
+    if (infile.is_open())
+
+    {
+
+        int n=0;
+
+        int iteration=0;
+
+        for(int num=0; num<(DataPoints*3); num++)
+
+        {
+
+            infile >> i;
+           
+
+            if(n==0)
+
+            {Xcoord[iteration]=i;}
+            
+
+            if(n==1)
+
+            {Ycoord[iteration]=i;}
+ 
+
+            if (n==2)
+
+            {
+
+             Class[iteration]=i; 
+
+             n=-1;
+
+             iteration++;
+
+            }
+
+            n++;
+
+        }
+
+    
+        infile.close();
+
+    }
+
+      else cout << "Unable to open file";
+
+}
+ 
+
+void InitClusterLoc()
+
+{        
+
+ float lowestX=SmallestX, lowestY=SmallestY , highestX=(largestX), highestY=(largestY); 
+
+ float rangeX=(highestX-lowestX), rangeY=(highestY-lowestY); 
+
+         
+
+     for(int cluster=0; cluster<clustersNum; cluster++)
+
+     {
+
+        ClusterXLoc[cluster]=lowestX+float(rangeX*rand()/(RAND_MAX + 1.0));
+
+        ClusterYLoc[cluster]=lowestY+float(rangeY*rand()/(RAND_MAX + 1.0));
+
+        prevClusterXLoc[cluster]=ClusterXLoc[cluster];
+
+        prevClusterYLoc[cluster]=ClusterYLoc[cluster];
+
+     }
+
+}
+ 
+
+void FindMinMaxXY()
+
+{
+
+     largestX=0;
+
+     largestY=0;
+
+ 
+
+     for(int num=0; num<DataPoints; num++)
+
+     {
+
+         if (largestX<Xcoord[num])
+
+         {largestX=Xcoord[num];}
+
+          
+
+         if (largestY<Ycoord[num])
+
+         {largestY=Ycoord[num];}
+
+     }
+     
+
+     SmallestX=largestX;
+
+     SmallestY=largestY;
+
+     for(int num=0; num<DataPoints; num++)
+
+     {                   
+
+         if (SmallestX>Xcoord[num])
+
+         {SmallestX=Xcoord[num];}
+         
+
+         if (SmallestY>Ycoord[num])
+
+         {SmallestY=Ycoord[num];}
+
+     }
+ 
+}
+ 
+
+int GroupPoints(int PlotPoint)
+
+{
+
+   int PointClass;                //Stores the Cluster the datapoint belongs to.
+
+   float dist=0.0;                //Distance between the data point and cluster
+
+                                  //mean.
+
+   float ShortestDist;            //Distance between data point and closest mean.
+
+ 
+
+       for(int cluster=0; cluster<clustersNum; cluster++)
+
+       {
+
+            //Calculate Euclidean Distance between plot point and cluster centers.
+
+            dist=sqrt((pow((Xcoord[PlotPoint] - ClusterXLoc[cluster]),2)+
+
+                       pow((Ycoord[PlotPoint] - ClusterYLoc[cluster]),2)));
+
+            
+
+            if(cluster==0)
+
+            {
+
+             ShortestDist=dist;
+
+             PointClass=cluster;
+
+            }
+
+                                            
+
+            if(cluster>0)
+
+            {
+
+                 if(dist<ShortestDist)
+
+                 {
+
+                  ShortestDist=dist;
+
+                  PointClass=cluster;
+
+                 }
+
+            }
+         
+
+       }   
+
+     return PointClass;
+
+}
+
+ 
+
+void SaveClusterMeans()
+
+{
+
+  ofstream myfile ("ClusterMeans.txt");
+
+  if (myfile.is_open())
+
+  {
+
+      for(int num=0; num<clustersNum; num++)
+
+      {
+
+        myfile<<ClusterXLoc[num]<<"\t"<<ClusterYLoc[num]<<"\n";
+
+      }
+
+      myfile.close();
+
+  }
+
+  else cout << "Unable to open file"; 
+
+}
+
+ 
+
+void SaveClassVals(int PointClass[])
+
+{
+
+       ofstream myfile ("SaveClassVals.txt");
+
+  if (myfile.is_open())
+
+  {
+
+      for(int num=0; num<DataPoints; num++)
+
+      {
+
+        myfile<<Xcoord[num]<<"\t"<<Ycoord[num]<<"\t"<<PointClass[num]<<"\n";
+
+      }
+
+      myfile.close();
+
+  }
+
+  else cout << "Unable to open file";
+
+}
+
