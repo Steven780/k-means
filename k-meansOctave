@@ -1,0 +1,76 @@
+
+
+pkg load statistics %loads the statistics package
+
+%which contains the kmeans function.
+
+clear all
+
+clc
+
+clf
+
+ 
+
+%Loading in the data from a txt file
+
+FullData = dlmread('flame.txt'); %Includes class information
+
+ 
+
+%Contains just the datapoints:
+
+Data = [FullData(:,1), FullData(:,2)];
+
+ 
+
+%Number of clusters
+
+K=2;
+
+ 
+
+%idx: class of each datapoint within IrisData.
+
+%centers: cluster center locations.
+
+tic() 
+
+[idx, centers] = kmeans (Data, K);
+
+toc()
+
+ 
+
+%----------------------Plot results----------------------------------------
+
+figure(1)
+
+hold all
+
+ 
+
+for class=1:K
+
+plot ( Data(idx==class, 1), Data(idx==class, 2), 'o');
+
+end
+
+ 
+
+%plot cluster centers:
+ plot (centers (:, 1), centers (:, 2), 'k*', 'markersize', 20);
+
+ hold off
+
+ 
+
+axis('equal')
+
+title('Iris Data')
+
+xlabel('Petal length (cm)')
+
+ylabel('Petal width (cm)')
+
+%--------------------------------------------------------------------------
